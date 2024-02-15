@@ -14,18 +14,39 @@ Homework for product architecture. The repo creates an interface where the user 
 
 
 # How to use it :question: :computer:
-## Notebooks :notebook:
+## Source :file_folder:
+The source code is in the `soruce` folder. The source code is divided into the following files:
+1. `prep.py`: this file does the ETL of the data saved in the `data/raw` folder and saves the data in the `data/clean` folder. To run the file, run the following command in your terminal:
+```bash
+cd source
+python prep.py
+```
 
+2. `train.py`: this file trains the model and saves the model in the `models` folder. To run the file, run the following command in your terminal:
+```bash
+cd source
+python train.py
+```
+
+3. `inference.py`: this file predicts the price of a house based on the input of the user. The script has two flags:
+    - `--csv_file`: the path of the csv file with the input of the user. The file should have the following columns: `CurrentAge`, `GrLivArea`, `LotArea`, `OverallCond`, `OverallQual`, `MSZoning`.
+    - `--evaluate`: if the flag is present and set to `True`, the script will also print the RMSE, MAPE and $R^2$ of the model. The default value is `False`.
+To run the file, run the following command in your terminal:
+```bash
+cd source
+python inference.py --csv_file path_to_csv_file --evaluate [True|False]
+```
+
+4. `utils.py`: this file contains the functions used in the other files.
+
+## Notebooks :notebook:
 The notebooks are in the `notebooks` folder. The notebooks should be run in the following order:
 1. `eda.ipynb`: This notebook contains the exploratory data analysis of the dataset. It also contains the feature engineering and the feature selection.
 2. `model.ipynb`: This notebook contains the model training and the model evaluation.
 3. `model_no_log.ipynb`: This notebook contains the model training and the model evaluation without the log transformation of the target variable.
-
-## Demo (source) :rocket:
-
-The demo is in the `source` folder. The demo is a notebook called `demo.ipynb`. The demo does the following:
-1. Predict the price of a house based on the input of the user.
-2. Explain the prediction of the model using SHAP values in a waterfall plot.
+4. The demo notebook called `demo.ipynb`. The demo does the following:
+    1. Predict the price of a house based on the input of the user.
+    2. Explain the prediction of the model using SHAP values in a waterfall plot.
 
 The payload of the model is the following:
 ```python
@@ -38,6 +59,32 @@ data = {
     'MSZoning': 'RL' # Zoning classification
 }
 ```
+
+# Repo structure :open_file_folder:
+The repo has the following structure:
+```
+.
+├── LICENSE
+├── README.md
+├── data
+│   ├── clean
+│   ├── predictions
+│   └── raw
+├── models
+│   └── vanilla_catboost
+├── notebooks
+│   ├── demo.ipynb
+│   ├── eda.ipynb
+│   ├── models.ipynb
+│   └── models_no_log.ipynb
+├── requirements.txt
+└── source
+    ├── inference.py
+    ├── prep.py
+    ├── train.py
+    └── utils.py
+```
+
 
 # Caveats :warning:
 The MVP only works for:
