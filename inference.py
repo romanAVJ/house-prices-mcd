@@ -10,7 +10,6 @@ Date: Mon Feb 12 19:49:11 2023
 # imports ####
 import os
 import logging
-import argparse
 import pandas as pd
 import numpy as np
 import catboost as cb
@@ -18,8 +17,17 @@ import source.utils as utils
 
 
 # parameters ####
+datetime = pd.to_datetime('today').strftime('%Y%m%d-%H')
+
 # Logging configuration
-logging.basicConfig(level=logging.INFO)
+os.makedirs(f'logs/{datetime}', exist_ok=True)
+logging.basicConfig(
+    level=logging.DEBUG,
+    format='%(name)s - %(levelname)s - %(message)s',
+    filename=f'logs/{datetime}/prep.log',
+    filemode='a'
+    )
+
 
 # functions ####
 
@@ -37,23 +45,35 @@ def validate_cols(df: pd.DataFrame, cols: list) -> None:
     """
     for col in cols:
         if col not in df.columns:
-            raise ValueError(f"Column '{col}' not found in the DataFrame.")
+            logging.error(f"Column '{col}' not found in DataFrame.\
+                           Cannot proceed.")
+            raise ValueError(f"Column '{col}' not found in DataFrame.")
+
+
+def predict_model(dir_model: str, X: pd.DataFrame) -> pd.Series:
+    """
+    Predict using a CatBoost model.
+    ---
+    dir_model: str
+        Directory where the model is saved.
+    X: pd.DataFrame
+        DataFrame containing the features.
+    """
+    # read model
+    model = cb.CatBoostRegressor()
+
+    try:
+        model.load_model(f'{dir_model}model.cbm')
+    except Exception as e:
+        logging.error(f"Error loading model: {e}")
+        raise e
+
+    # predict
+    return np.round(model.predict(X), 0)
 
 
 # main ####
 if __name__ == "__main__":
-    # parser ####
-    # Parse command-line arguments
-    parser = argparse.ArgumentParser(description="Read a CSV file.")
-    parser.add_argument("--csv_file",
-                        help="Path to the CSV file.",
-                        default='data/clean/house_data.csv')
-
-    # parser for evaluate_model
-    parser.add_argument("--evaluate", default=False, type=bool,
-                        help="Whether to plot the predictions.")
-    args = parser.parse_args()
-
     # main ####
     # Start training
     logging.info(f'{"="*10}INFERENCE{"="*10}')
@@ -61,10 +81,15 @@ if __name__ == "__main__":
     # Read config
     config = utils.get_config()
 
+    # Generate parser
+    parser = utils.generate_parser(
+        config['etl']['inference']['arguments'], name='Inference Arguments'
+        )
+    args = parser.parse_args()
+
     # read data
-    csv_file_path = args.csv_file
     logging.info("Reading CSV file... ")
-    df_batch = utils.read_data(file_path=csv_file_path)
+    df_batch = utils.read_data(file_path=args.csv_file_path)
 
     # validate columns
     target_var = config['etl']['train']['target_variable']
@@ -74,28 +99,27 @@ if __name__ == "__main__":
     validate_cols(df_batch, model_cols)  # validation
 
     # predict
+    logging.info("Predicting...")
     model = cb.CatBoostRegressor()
-    model_name = config['model']['name']
-    dir_model = f"models/{model_name}"
-    model.load_model(f'{dir_model}/model.cbm')
+    dir_model = args.model_path
+    model_name = dir_model.split('/')[-2]
     y_name = config['etl']['train']['target_variable']
-
-    df_batch[f'{y_name}_pred'] = np.round(model.predict(
-        df_batch[model_cols]
-        ))
+    df_batch[f'{y_name}_pred'] = predict_model(dir_model, df_batch[model_cols])
 
     # evaluate
     if args.evaluate:
         metrics = utils.evaluate_model(
             model, df_batch[model_cols], df_batch[y_name], do_plot=True
             )
-        logging.info(f"Metrics: {metrics}")
+        logging.debug(f"Metrics: {metrics}")
 
     # save predictions
     logging.info("Saving predictions...")
-    dir_predictions = config['etl']['inference']['save_path']
+    dir_predictions = "data/predictions"
     os.makedirs(dir_predictions, exist_ok=True)
     date_time = pd.to_datetime('now').strftime('%Y%m%d')
-    df_batch.to_csv(f'{dir_predictions}/pred_{model_name}_{date_time}.csv')
-    logging.info(f"Predictions saved to {dir_predictions}")
+    file_name =\
+        f"{dir_predictions}/{args.save_file}_{model_name}_{date_time}.csv"
+    utils.save_file(df_batch, file_name)  # save predictions
+    logging.info("Predictions saved")
     logging.info("Done.")

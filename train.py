@@ -17,8 +17,16 @@ from sklearn.model_selection import train_test_split
 import source.utils as utils
 
 # parameters ####
+datetime = pd.to_datetime('today').strftime('%Y%m%d-%H')
+
 # Logging configuration
-logging.basicConfig(level=logging.INFO)
+os.makedirs(f'logs/{datetime}', exist_ok=True)
+logging.basicConfig(
+    level=logging.DEBUG,
+    format='%(name)s - %(levelname)s - %(message)s',
+    filename=f'logs/{datetime}/prep.log',
+    filemode='a'
+    )
 
 # functions ####
 
@@ -49,14 +57,23 @@ def split_data(
     pd.Series
         Series containing the target.
     """
+    if test_size < 0 or test_size > 1:
+        logging.error('test_size must be between 0 and 1')
+        logging.debug('Using default test_size=0.2')
+        test_size = 0.2
+    
     # split data
-    X_train, X_test, y_train, y_test = train_test_split(
-        df.drop([yobj], axis=1), df[yobj],
-        test_size=test_size, random_state=seed,
-        stratify=stratify
-    )
+    try:
+        X_train, X_test, y_train, y_test = train_test_split(
+            df.drop([yobj], axis=1), df[yobj],
+            test_size=test_size, random_state=seed,
+            stratify=stratify
+        )
 
-    return X_train, X_test, y_train, y_test
+        return X_train, X_test, y_train, y_test
+    except Exception as e:
+        logging.error(f'Error splitting the data: {e}')
+        return None, None, None, None
 
 
 def train_model(
@@ -85,10 +102,25 @@ def train_model(
     cb.CatBoostRegressor
         Trained CatBoost model.
     """
+    # validation of algorithm
     if algorithm.lower() != 'catboost':
-        raise ValueError('Only CatBoost is supported for now')
-    # TODO: add validation that all the cat_features are in X
-    # TODO: add validation that all the monotonic constraints are in X (if any)
+        logging.error('Only CatBoost is supported for now, using CatBoost.')
+
+    # validation of hyperparameters
+    if hyperparms is not None:
+        if 'monotone_constraints' in hyperparms:
+            # all hyperparms['monotone_constraints'] must be in X.columns
+            if not all(
+                [col in X.columns
+                 for col in hyperparms['monotone_constraints']]
+                 ):
+                logging.error(
+                    'The monotonic constraints must be in the features'
+                    )
+                logging.debug('Ignoring monotonic constraints')
+                hyperparms.pop('monotone_constraints')
+
+    # train model
     model = cb.CatBoostRegressor(**hyperparms)
     model.fit(X, y, cat_features=cat_features)
     return model
@@ -102,10 +134,16 @@ if __name__ == '__main__':
     # Read config
     config = utils.get_config()
 
+    # Generate parser
+    parser = utils.generate_parser(
+        config['etl']['train']['arguments'], name='Train arguments'
+        )
+    args = parser.parse_args()
+
     # Load the data
     logging.info('Loading data...')
     df_houses = utils.read_data(
-        file_path=config['etl']['train']['file_path']
+        file_path=args.csv_file_path
         )
 
     # split data
@@ -117,17 +155,17 @@ if __name__ == '__main__':
     model_cols = numeric_cols + categorical_cols + [target_var]
     stratify_columns = config['etl']['train']['stratify']
 
-    logging.info(f"Model columns: {numeric_cols + categorical_cols}")
+    logging.debug(f"Model columns: {numeric_cols + categorical_cols}")
     # subset data
     df_houses_subset = df_houses[model_cols].copy()
     X_train, X_test, y_train, y_test = split_data(
         df_houses_subset,
         yobj=target_var,
-        test_size=config['etl']['train']['test_size'],
+        test_size=float(args.test_size),
         seed=config['etl']['train']['seed'],
         stratify=df_houses_subset[stratify_columns]
         )
-    logging.info(f"Train size: {X_train.shape[0]},\
+    logging.debug(f"Train size: {X_train.shape[0]},\
                  Test size: {X_test.shape[0]}")
 
     # Train the model
@@ -140,29 +178,31 @@ if __name__ == '__main__':
         )
 
     # Evaluate the model
-    logging.info('Evaluating model...')
-    dir_model = f"models/{config['model']['name']}"
-    os.makedirs(dir_model, exist_ok=True)
-    metrics_train = utils.evaluate_model(
-        model, X_train, y_train, do_plot=True, dir_model=dir_model,
-        suffix='_train'
-        )
-    metrics_test = utils.evaluate_model(
-        model, X_test, y_test, do_plot=True, dir_model=dir_model,
-        suffix='_test'
-        )
-    df_metrics = pd.concat([metrics_train, metrics_test], axis=1)
-    # TODO: with the suffix as key, dont need to rename the columns
-    df_metrics.columns = ['train', 'test']
+    dir_model = f"models/{args.name_model}"
+    if args.evaluate:
+        logging.info('Evaluating model...')
+        os.makedirs(dir_model, exist_ok=True)
+        metrics_train = utils.evaluate_model(
+            model, X_train, y_train, do_plot=True, dir_model=dir_model,
+            suffix='_train'
+            )
+        metrics_test = utils.evaluate_model(
+            model, X_test, y_test, do_plot=True, dir_model=dir_model,
+            suffix='_test'
+            )
+        df_metrics = pd.concat([metrics_train, metrics_test], axis=1)
+        # TODO: with the suffix as key, dont need to rename the columns
+        df_metrics.columns = ['train', 'test']
 
-    # Save the model and metrics
-    logging.info('Saving model...')
-    model.save_model(dir_model + '/model.cbm')
-    df_metrics.to_csv(dir_model + '/metrics.csv')
+        # Save the model and metrics
+        logging.info('Saving model...')
+        model.save_model(dir_model + '/model.cbm')
+        df_metrics.to_csv(dir_model + '/metrics.csv')
+        logging.info(f'Model and metrics saved to {dir_model}')
 
     # save hyperparameters
+    logging.info('Saving hyperparameters...')
     with open(dir_model + '/hyperparams.yaml', 'w') as file:
         yaml.dump(config['model']['hyperparams'], file)
 
-    logging.info(f'Model and metrics saved to {dir_model}')
     logging.info('\nDone training!')

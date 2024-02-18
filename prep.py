@@ -15,10 +15,16 @@ import numpy as np
 import source.utils as utils
 
 # parameters ####
-# Logging configuration
-logging.basicConfig(level=logging.INFO)
+datetime = pd.to_datetime('today').strftime('%Y%m%d-%H')
 
-# functions ####
+# Logging configuration
+os.makedirs(f'logs/{datetime}', exist_ok=True)
+logging.basicConfig(
+    level=logging.DEBUG,
+    format='%(name)s - %(levelname)s - %(message)s',
+    filename=f'logs/{datetime}/prep.log',
+    filemode='a'
+    )
 
 
 def augment_data(df: pd.DataFrame, current_year=2010) -> pd.DataFrame:
@@ -120,12 +126,18 @@ if __name__ == '__main__':
     # Read config
     config = utils.get_config()
 
+    # Generate parser
+    parser = utils.generate_parser(
+        config['etl']['prep']['arguments'], name='ETL arguments'
+        )
+    args = parser.parse_args()
+
     # Read raw data
     logging.info('Reading data...')
     df_houses_raw = utils.read_data(
-        file_path=config['etl']['prep']['file_path']
+        file_path=args.csv_file_path
         )
-    logging.info(f"Data read with {df_houses_raw.shape[0]} rows and\
+    logging.debug(f"Data read with {df_houses_raw.shape[0]} rows and\
     {df_houses_raw.shape[1]} columns")
 
     # Augment data
@@ -136,19 +148,25 @@ if __name__ == '__main__':
         )
 
     # Subset data
-    df_houses = subset_data(
-        df_houses,
-        subsets=config['etl']['prep']['filters'],
-        cols=config['etl']['prep']['variables']
-        )
-    percent_less = 1 - df_houses.shape[0] / df_houses_raw.shape[0]
-    percent_less_rounded = np.round(percent_less * 100, 2)
-    logging.info(f"Data trimmed to {percent_less_rounded}% less rows")
+    if args.subset:
+        logging.info('Subsetting data...')
+        df_houses = subset_data(
+            df_houses,
+            subsets=config['etl']['prep']['filters'],
+            cols=config['etl']['prep']['variables']
+            )
+        percent_less = 1 - df_houses.shape[0] / df_houses_raw.shape[0]
+        percent_less_rounded = np.round(percent_less * 100, 2)
+        logging.debug(f"Data trimmed to {percent_less_rounded}% less rows")
 
     # Save cleaned data
     logging.info('Saving data...')
     dir_save = config['etl']['prep']['save_path']
     os.makedirs(dir_save, exist_ok=True)
-    df_houses.to_csv(dir_save + 'house_data.csv', index=False)
-    logging.info(f"Data saved to {dir_save} house_data.csv")
+    file_name = f"{dir_save}{args.save_file}.csv"
+    utils.save_file(df_houses, file_name)  # save the file
+    logging.info(f"Data saved to {file_name}")
     logging.info('\nDone ETL!')
+
+    # save the logs
+    logging.shutdown()
