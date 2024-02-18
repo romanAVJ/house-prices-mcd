@@ -1,0 +1,79 @@
+main:
+  repo: https://github.com/romanAVJ/house-prices-mcd
+  branch: main
+etl:
+  prep:
+    file_path: data/raw/train.csv
+    variables:
+      - Id
+      - CurrentAge
+      - LotArea
+      - PorchArea
+      - TotalBaths
+      - OverallQual
+      - OverallCond
+      - GrLivArea
+      - SaleType
+      - SaleCondition
+      - MSZoning
+      - Story
+      - StoryFinish
+      - SalePrice
+      - TotRmsAbvGrd
+    current_year: 2010
+    filters:
+      TotRmsAbvGrd:
+          operator: '>'
+          value: 0
+      TotalBaths:
+          operator: '>'
+          value: 0
+      LotArea:
+          operator: '<'
+          value: 200000
+      PorchArea:
+          operator: '<'
+          value: 1000
+      SaleType:
+          operator: 'in'
+          value: ['WD', 'New']
+      SaleCondition:
+          operator: 'in'
+          value: ['Normal', 'Partial']
+      MSZoning:
+          operator: 'in'
+          value: ['RL', 'RM', 'RP', 'RH']
+    save_path: data/clean/
+  train:
+    file_path: data/clean/house_data.csv
+    target_variable: SalePrice
+    test_size: 0.2
+    stratify:
+      - MSZoning
+    seed: 42
+  inference:
+    save_path: data/predictions/
+model:
+  algorithm: catboost
+  name: charmander
+  variables:
+    categorical:
+      - MSZoning
+    numerical:
+      - GrLivArea
+      - OverallQual
+      - CurrentAge
+      - OverallCond
+      - LotArea
+  hyperparams:
+    iterations: 1000
+    learning_rate: 0.05
+    loss_function: RMSE
+    verbose: False
+    random_seed: 8
+    monotone_constraints:
+      GrLivArea: 1
+      OverallQual: 1
+      CurrentAge: -1
+      OverallCond: 1
+      LotArea: 1

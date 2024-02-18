@@ -162,6 +162,7 @@ cython_debug/
 
 # catboost 
 */catboost_info/
+catboost_info/
 
 # DS_Store
 */.DS_Store

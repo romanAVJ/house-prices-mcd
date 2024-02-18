@@ -1,0 +1,11 @@
+iterations: 1000
+learning_rate: 0.05
+loss_function: RMSE
+monotone_constraints:
+  CurrentAge: -1
+  GrLivArea: 1
+  LotArea: 1
+  OverallCond: 1
+  OverallQual: 1
+random_seed: 8
+verbose: false
