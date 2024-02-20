@@ -179,3 +179,40 @@ def save_file(df: pd.DataFrame, file_path: str) -> None:
         df.to_csv(file_path, index=False)
     except Exception as e:
         logging.error("An error occurred:", e)
+
+
+def get_logger(
+    name: str, level=logging.DEBUG, file_dir='logs'
+     ) -> logging.Logger:
+    """
+    Get a logger with the given name and level.
+
+    Parameters
+    ----------
+    name : str
+        Name of the logger.
+    level : int, default=logging.DEBUG
+        Level of the logger.
+
+    Returns
+    -------
+    logging.Logger
+    """
+    try:
+        # filename to save logs
+        datetime = pd.Timestamp.now().strftime("%Y%m%d_%H%M%S")
+        file_name = f"{file_dir}/{datetime}_{name}.log"
+        # add file handler
+        os.makedirs(file_dir, exist_ok=True)
+        file_handler = logging.FileHandler(file_name)
+        # Get a logger with the given name and level
+        logger = logging.getLogger(name)
+        logger.setLevel(level)
+        # add formatter
+        formatter = logging.Formatter('%(name)s - %(levelname)s - %(message)s')
+        file_handler.setFormatter(formatter)
+        # add file handler
+        logger.addHandler(file_handler)
+        return logger
+    except Exception as e:
+        logging.error("An error occurred:", e)

@@ -1,0 +1,10 @@
+inference - INFO - ==========INFERENCE==========
+inference - INFO - Reading CSV file... 
+inference - INFO - Predicting...
+inference - DEBUG - Metrics: rmse    28638.561197
+mape        9.998027
+r2          0.870816
+dtype: float64
+inference - INFO - Saving predictions...
+inference - INFO - Predictions saved
+inference - INFO - Done.

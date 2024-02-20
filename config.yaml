@@ -63,7 +63,7 @@ etl:
         default: 0.2
       name_model:
         help: Name to save the model
-        default: charmander
+        default: catboost_demo
       evaluate:
         help: Wether to evaluate the model
         default: true

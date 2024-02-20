@@ -16,18 +16,6 @@ import catboost as cb
 from sklearn.model_selection import train_test_split
 import source.utils as utils
 
-# parameters ####
-datetime = pd.to_datetime('today').strftime('%Y%m%d-%H')
-
-# Logging configuration
-os.makedirs(f'logs/{datetime}', exist_ok=True)
-logging.basicConfig(
-    level=logging.DEBUG,
-    format='%(name)s - %(levelname)s - %(message)s',
-    filename=f'logs/{datetime}/prep.log',
-    filemode='a'
-    )
-
 # functions ####
 
 
@@ -58,8 +46,8 @@ def split_data(
         Series containing the target.
     """
     if test_size < 0 or test_size > 1:
-        logging.error('test_size must be between 0 and 1')
-        logging.debug('Using default test_size=0.2')
+        logger.error('test_size must be between 0 and 1')
+        logger.debug('Using default test_size=0.2')
         test_size = 0.2
     
     # split data
@@ -72,7 +60,7 @@ def split_data(
 
         return X_train, X_test, y_train, y_test
     except Exception as e:
-        logging.error(f'Error splitting the data: {e}')
+        logger.error(f'Error splitting the data: {e}')
         return None, None, None, None
 
 
@@ -104,7 +92,7 @@ def train_model(
     """
     # validation of algorithm
     if algorithm.lower() != 'catboost':
-        logging.error('Only CatBoost is supported for now, using CatBoost.')
+        logger.error('Only CatBoost is supported for now, using CatBoost.')
 
     # validation of hyperparameters
     if hyperparms is not None:
@@ -114,10 +102,10 @@ def train_model(
                 [col in X.columns
                  for col in hyperparms['monotone_constraints']]
                  ):
-                logging.error(
+                logger.error(
                     'The monotonic constraints must be in the features'
                     )
-                logging.debug('Ignoring monotonic constraints')
+                logger.debug('Ignoring monotonic constraints')
                 hyperparms.pop('monotone_constraints')
 
     # train model
@@ -128,8 +116,11 @@ def train_model(
 
 # main ####
 if __name__ == '__main__':
+    # get logger
+    logger = utils.get_logger('train', level=logging.DEBUG)
+
     # start training
-    logging.info(f'{"="*10}TRAINING{"="*10}')
+    logger.info(f'{"="*10}TRAINING{"="*10}')
 
     # Read config
     config = utils.get_config()
@@ -141,13 +132,13 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     # Load the data
-    logging.info('Loading data...')
+    logger.info('Loading data...')
     df_houses = utils.read_data(
         file_path=args.csv_file_path
         )
 
     # split data
-    logging.info('Splitting data...')
+    logger.info('Splitting data...')
     # getting y & X
     target_var = config['etl']['train']['target_variable']
     numeric_cols = config['model']['variables'].get('numerical', [])
@@ -155,7 +146,7 @@ if __name__ == '__main__':
     model_cols = numeric_cols + categorical_cols + [target_var]
     stratify_columns = config['etl']['train']['stratify']
 
-    logging.debug(f"Model columns: {numeric_cols + categorical_cols}")
+    logger.debug(f"Model columns: {numeric_cols + categorical_cols}")
     # subset data
     df_houses_subset = df_houses[model_cols].copy()
     X_train, X_test, y_train, y_test = split_data(
@@ -165,11 +156,11 @@ if __name__ == '__main__':
         seed=config['etl']['train']['seed'],
         stratify=df_houses_subset[stratify_columns]
         )
-    logging.debug(f"Train size: {X_train.shape[0]},\
+    logger.debug(f"Train size: {X_train.shape[0]},\
                  Test size: {X_test.shape[0]}")
 
     # Train the model
-    logging.info('Training model...')
+    logger.info('Training model...')
     model = train_model(
         X_train, y_train,
         algorithm=config['model']['algorithm'],
@@ -180,7 +171,7 @@ if __name__ == '__main__':
     # Evaluate the model
     dir_model = f"models/{args.name_model}"
     if args.evaluate:
-        logging.info('Evaluating model...')
+        logger.info('Evaluating model...')
         os.makedirs(dir_model, exist_ok=True)
         metrics_train = utils.evaluate_model(
             model, X_train, y_train, do_plot=True, dir_model=dir_model,
@@ -195,14 +186,14 @@ if __name__ == '__main__':
         df_metrics.columns = ['train', 'test']
 
         # Save the model and metrics
-        logging.info('Saving model...')
+        logger.info('Saving model...')
         model.save_model(dir_model + '/model.cbm')
         df_metrics.to_csv(dir_model + '/metrics.csv')
-        logging.info(f'Model and metrics saved to {dir_model}')
+        logger.info(f'Model and metrics saved to {dir_model}')
 
     # save hyperparameters
-    logging.info('Saving hyperparameters...')
+    logger.info('Saving hyperparameters...')
     with open(dir_model + '/hyperparams.yaml', 'w') as file:
         yaml.dump(config['model']['hyperparams'], file)
 
-    logging.info('\nDone training!')
+    logger.info('\nDone training!')

@@ -14,18 +14,6 @@ import pandas as pd
 import numpy as np
 import source.utils as utils
 
-# parameters ####
-datetime = pd.to_datetime('today').strftime('%Y%m%d-%H')
-
-# Logging configuration
-os.makedirs(f'logs/{datetime}', exist_ok=True)
-logging.basicConfig(
-    level=logging.DEBUG,
-    format='%(name)s - %(levelname)s - %(message)s',
-    filename=f'logs/{datetime}/prep.log',
-    filemode='a'
-    )
-
 
 def augment_data(df: pd.DataFrame, current_year=2010) -> pd.DataFrame:
     """
@@ -110,7 +98,7 @@ def subset_data(df: pd.DataFrame, subsets: dict, cols: str) -> pd.DataFrame:
     """
     # Subset the DataFrame
     for col, subset in subsets.items():
-        # TODO: apply logging.info() to print the subset condition
+        # TODO: apply logger.info() to print the subset condition
         df = df.query(f"{col} {subset['operator']} {subset['value']}")
 
     # Keep only the specified columns
@@ -120,8 +108,11 @@ def subset_data(df: pd.DataFrame, subsets: dict, cols: str) -> pd.DataFrame:
 
 # main ####
 if __name__ == '__main__':
+    # get logger
+    logger = utils.get_logger('prep', level=logging.DEBUG)
+
     # Start ETL process
-    logging.info(f'{"="*10}ETL{"="*10}')
+    logger.info(f'{"="*10}ETL{"="*10}')
 
     # Read config
     config = utils.get_config()
@@ -133,15 +124,15 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     # Read raw data
-    logging.info('Reading data...')
+    logger.info('Reading data...')
     df_houses_raw = utils.read_data(
         file_path=args.csv_file_path
         )
-    logging.debug(f"Data read with {df_houses_raw.shape[0]} rows and\
+    logger.debug(f"Data read with {df_houses_raw.shape[0]} rows and\
     {df_houses_raw.shape[1]} columns")
 
     # Augment data
-    logging.info('Transforming data...')
+    logger.info('Transforming data...')
     df_houses = augment_data(
         df_houses_raw,
         current_year=config['etl']['prep']['current_year']
@@ -149,7 +140,7 @@ if __name__ == '__main__':
 
     # Subset data
     if args.subset:
-        logging.info('Subsetting data...')
+        logger.info('Subsetting data...')
         df_houses = subset_data(
             df_houses,
             subsets=config['etl']['prep']['filters'],
@@ -157,16 +148,13 @@ if __name__ == '__main__':
             )
         percent_less = 1 - df_houses.shape[0] / df_houses_raw.shape[0]
         percent_less_rounded = np.round(percent_less * 100, 2)
-        logging.debug(f"Data trimmed to {percent_less_rounded}% less rows")
+        logger.debug(f"Data trimmed to {percent_less_rounded}% less rows")
 
     # Save cleaned data
-    logging.info('Saving data...')
+    logger.info('Saving data...')
     dir_save = config['etl']['prep']['save_path']
     os.makedirs(dir_save, exist_ok=True)
     file_name = f"{dir_save}{args.save_file}.csv"
     utils.save_file(df_houses, file_name)  # save the file
-    logging.info(f"Data saved to {file_name}")
-    logging.info('\nDone ETL!')
-
-    # save the logs
-    logging.shutdown()
+    logger.info(f"Data saved to {file_name}")
+    logger.info('\nDone ETL!')
