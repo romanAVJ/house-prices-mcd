@@ -13,9 +13,11 @@ import logging
 import pandas as pd
 import numpy as np
 import catboost as cb
-import source.utils as utils
+from source import utils
 
 # functions ####
+# get logger
+logger = utils.get_logger('inference', level=logging.DEBUG)
 
 
 def validate_cols(df: pd.DataFrame, cols: list) -> None:
@@ -52,9 +54,6 @@ def predict_model(model: cb.CatBoostRegressor, X: pd.DataFrame) -> pd.Series:
 # main ####
 if __name__ == "__main__":
     # main ####
-    # get logger
-    logger = utils.get_logger('inference', level=logging.DEBUG)
-
     # Start training
     logger.info(f'{"="*10}INFERENCE{"="*10}')
 
@@ -81,15 +80,18 @@ if __name__ == "__main__":
     # predict
     logger.info("Predicting...")
     dir_model = args.model_path
-    model = cb.CatBoostRegressor().load_model(f'{dir_model}model.cbm')
+    model_catboost = cb.CatBoostRegressor().load_model(f'{dir_model}model.cbm')
     model_name = dir_model.split('/')[-2]
     y_name = config['etl']['train']['target_variable']
-    df_batch[f'{y_name}_pred'] = predict_model(model, df_batch[model_cols])
+    df_batch[f'{y_name}_pred'] = predict_model(
+        model_catboost, df_batch[model_cols]
+        )
 
     # evaluate
     if args.evaluate:
         metrics = utils.evaluate_model(
-            model, df_batch[model_cols], df_batch[y_name], do_plot=True
+            model_catboost, df_batch[model_cols],
+            df_batch[y_name], do_plot=True
             )
         logger.debug(f"Metrics: {metrics}")
 

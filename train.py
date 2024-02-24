@@ -14,9 +14,11 @@ import yaml
 import pandas as pd
 import catboost as cb
 from sklearn.model_selection import train_test_split
-import source.utils as utils
+from source import utils
 
 # functions ####
+# get logger
+logger = utils.get_logger('train', level=logging.DEBUG)
 
 
 def split_data(
@@ -49,16 +51,16 @@ def split_data(
         logger.error('test_size must be between 0 and 1')
         logger.debug('Using default test_size=0.2')
         test_size = 0.2
-    
+
     # split data
     try:
-        X_train, X_test, y_train, y_test = train_test_split(
+        xtrain, xtest, ytrain, ytest = train_test_split(
             df.drop([yobj], axis=1), df[yobj],
             test_size=test_size, random_state=seed,
             stratify=stratify
         )
 
-        return X_train, X_test, y_train, y_test
+        return xtrain, xtest, ytrain, ytest
     except Exception as e:
         logger.error(f'Error splitting the data: {e}')
         return None, None, None, None
@@ -68,7 +70,7 @@ def train_model(
      X: pd.DataFrame, y: pd.Series,
      algorithm='CatBoost',
      cat_features=None,
-     hyperparms={}
+     hyperparms=None
      ) -> cb.CatBoostRegressor:
     """
     Train a CatBoost Regressor model on the given features and target.
@@ -82,7 +84,7 @@ def train_model(
         Name of the model to train. Only CatBoost is supported.
     cat_features: list, default=None
         List of categorical features.
-    hyperparms: dict, default={}
+    hyperparms: dict, default=None
         Hyperparameters for the model.
 
     Returns
@@ -116,8 +118,6 @@ def train_model(
 
 # main ####
 if __name__ == '__main__':
-    # get logger
-    logger = utils.get_logger('train', level=logging.DEBUG)
 
     # start training
     logger.info(f'{"="*10}TRAINING{"="*10}')
@@ -161,7 +161,7 @@ if __name__ == '__main__':
 
     # Train the model
     logger.info('Training model...')
-    model = train_model(
+    model_catboost = train_model(
         X_train, y_train,
         algorithm=config['model']['algorithm'],
         cat_features=categorical_cols,
@@ -174,26 +174,26 @@ if __name__ == '__main__':
         logger.info('Evaluating model...')
         os.makedirs(dir_model, exist_ok=True)
         metrics_train = utils.evaluate_model(
-            model, X_train, y_train, do_plot=True, dir_model=dir_model,
+            model_catboost, X_train, y_train,
+            do_plot=True, dir_model=dir_model,
             suffix='_train'
             )
         metrics_test = utils.evaluate_model(
-            model, X_test, y_test, do_plot=True, dir_model=dir_model,
+            model_catboost, X_test, y_test, do_plot=True, dir_model=dir_model,
             suffix='_test'
             )
         df_metrics = pd.concat([metrics_train, metrics_test], axis=1)
-        # TODO: with the suffix as key, dont need to rename the columns
         df_metrics.columns = ['train', 'test']
 
         # Save the model and metrics
         logger.info('Saving model...')
-        model.save_model(dir_model + '/model.cbm')
+        model_catboost.save_model(dir_model + '/model.cbm')
         df_metrics.to_csv(dir_model + '/metrics.csv')
         logger.info(f'Model and metrics saved to {dir_model}')
 
     # save hyperparameters
     logger.info('Saving hyperparameters...')
-    with open(dir_model + '/hyperparams.yaml', 'w') as file:
+    with open(dir_model + '/hyperparams.yaml', 'w', encoding='utf-8') as file:
         yaml.dump(config['model']['hyperparams'], file)
 
     logger.info('\nDone training!')

@@ -12,7 +12,7 @@ import logging
 import os
 import pandas as pd
 import numpy as np
-import source.utils as utils
+from source import utils
 
 
 def augment_data(df: pd.DataFrame, current_year=2010) -> pd.DataFrame:
@@ -98,7 +98,6 @@ def subset_data(df: pd.DataFrame, subsets: dict, cols: str) -> pd.DataFrame:
     """
     # Subset the DataFrame
     for col, subset in subsets.items():
-        # TODO: apply logger.info() to print the subset condition
         df = df.query(f"{col} {subset['operator']} {subset['value']}")
 
     # Keep only the specified columns
