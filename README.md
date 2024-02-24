@@ -15,7 +15,7 @@ Homework for product architecture. The repo creates an interface where the user 
 
 # How to use it :question: :computer:
 ## Source :file_folder:
-The source code is in the `soruce` folder. The source code is divided into the following files:
+The source code is divided into the following files:
 1. `prep.py`: this file does the ETL of the data saved in the `data/raw` folder and saves the data in the `data/clean` folder. To run the file, run the following command in your terminal:
 ```bash
 cd source
@@ -37,7 +37,12 @@ cd source
 python inference.py --csv_file path_to_csv_file --evaluate [True|False]
 ```
 
-4. `utils.py`: this file contains the functions used in the other files.
+4. `source/utils.py`: this file contains the functions used in the other files.
+
+5. `test_utils.py`: this file contains the tests of the functions in the `utils.py` file. To run the tests, run the following command in your terminal:
+```bash
+python test_utils.py
+```
 
 ## Notebooks :notebook:
 The notebooks are in the `notebooks` folder. The notebooks should be run in the following order:
@@ -79,20 +84,31 @@ The repo has the following structure:
 │   └── models_no_log.ipynb
 ├── requirements.txt
 └── source
-    ├── inference.py
-    ├── prep.py
-    ├── train.py
     └── utils.py
+└── prep.py
+└── train.py
+└── inference.py
+└── test_utils.py
 ```
 
 
 # Caveats :warning:
+## Scope of the MVP
 The MVP only works for:
 
 - Houses
 - Normal Sale Condition or Partial Sale Condition which means it was a presale. (not foreclosure, not short sale, etc.)
 - Residential houses (no commercial, no industrial, etc.)
 - Warranty Convencional or New Home (no VA, no FHA, etc.)
+
+## Linter Grade
+The linter grade is `8.84` according to the `pylint` package. 
+![pylint](figures/linters.png)
+
+## Test Grade
+The pytest grade is `100%` according to the `pytest` package.
+![pytest](figures/pytest_pass.png)
+
 
 # Requirements :clipboard:
 The requirements are in the `requirements.txt` file. To install them, run the following command in your terminal:
