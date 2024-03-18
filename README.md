@@ -44,6 +44,10 @@ python inference.py --csv_file path_to_csv_file --evaluate [True|False]
 python test_utils.py
 ```
 
+The order of the files to run is the following:
+![dag](dag.png)
+
+
 ## Notebooks :notebook:
 The notebooks are in the `notebooks` folder. The notebooks should be run in the following order:
 1. `eda.ipynb`: This notebook contains the exploratory data analysis of the dataset. It also contains the feature engineering and the feature selection.
